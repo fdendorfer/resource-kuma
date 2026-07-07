@@ -36,7 +36,7 @@
   header { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   header h1 { font-size: 17px; font-weight: 600; white-space: nowrap; }
   header h1 span { color: #a855f7; }
-  #updated { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  #updated { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; margin-right: 0; }
   #zoom-reset { display: none; background: var(--surface); border: 1px solid var(--yellow); color: var(--yellow); padding: 3px 9px; border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; }
   #zoom-reset.visible { display: inline-block; }
 
@@ -57,6 +57,11 @@
   .val-num.warn { color: var(--yellow); }
   .val-num.crit { color: var(--red); }
   canvas { display: block; cursor: crosshair; width: 100% !important; }
+  .chart-wrap { position: relative; }
+  #tooltip { position: fixed; pointer-events: none; display: none; background: var(--tooltip-bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; font-size: 11px; font-family: system-ui, sans-serif; color: var(--text); z-index: 100; white-space: nowrap; backdrop-filter: blur(4px); }
+  #tooltip .tt-time { color: var(--muted); margin-bottom: 4px; }
+  #tooltip .tt-row { display: flex; align-items: center; gap: 6px; line-height: 1.6; }
+  #tooltip .tt-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
   .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
@@ -78,9 +83,10 @@
 <body>
 <header>
   <h1>resource<span>-kuma</span></h1>
-  <button id="theme-toggle" class="toggle-btn" title="Toggle light/dark mode">☀︎</button>
   <span id="updated">—</span>
+  <button id="theme-toggle" class="toggle-btn" title="Toggle light/dark mode">☀︎</button>
 </header>
+<div id="tooltip"><div class="tt-time" id="tt-time"></div><div id="tt-rows"></div></div>
 <main>
   <div class="card">
     <div class="card-header">
@@ -103,14 +109,14 @@
         <span class="chart-label">CPU</span>
         <span class="val-num" id="cpu-val">—</span>
       </div>
-      <canvas id="cpu-chart"></canvas>
+      <div class="chart-wrap"><canvas id="cpu-chart"></canvas></div>
     </div>
     <div class="chart-section" style="margin-bottom:0">
       <div class="chart-label-row">
         <span class="chart-label">Memory</span>
         <span class="val-num" id="mem-val">—</span>
       </div>
-      <canvas id="mem-chart"></canvas>
+      <div class="chart-wrap"><canvas id="mem-chart"></canvas></div>
     </div>
     <div class="legend" id="legend"></div>
   </div>
@@ -159,11 +165,17 @@ class LineChart {
         onZoom(this._drag.tsStart + delta, this._drag.tsEnd + delta);
       } else {
         this.hoverX = e.clientX - canvas.getBoundingClientRect().left;
+        this._mouseClientX = e.clientX;
+        this._mouseClientY = e.clientY;
         this.draw();
+        showTooltip(this);
       }
     });
     canvas.addEventListener('mouseup', () => { this._drag = null; canvas.style.cursor = 'crosshair'; });
-    canvas.addEventListener('mouseleave', () => { this._drag = null; this.hoverX = null; canvas.style.cursor = 'crosshair'; this.draw(); });
+    canvas.addEventListener('mouseleave', () => {
+      this._drag = null; this.hoverX = null; canvas.style.cursor = 'crosshair';
+      this.draw(); hideTooltip();
+    });
   }
 
   _resize() {
@@ -249,7 +261,7 @@ class LineChart {
       ctx.stroke(); ctx.setLineDash([]);
     });
 
-    // Crosshair + tooltip
+    // Crosshair + dots (tooltip is HTML, see showTooltip())
     if (this.hoverX !== null) {
       const x = this.hoverX;
       if (x >= pad.l && x <= W - pad.r) {
@@ -258,8 +270,6 @@ class LineChart {
         ctx.setLineDash([3,3]); ctx.strokeStyle = cs2.getPropertyValue('--muted').trim(); ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ch); ctx.stroke();
         ctx.setLineDash([]);
-
-        const rows = [];
         series.filter(s => !s.dashed && s.label).forEach(s => {
           const pts = s.points.filter(p => p.ts >= tsStart && p.ts <= tsEnd);
           if (pts.length < 2) return;
@@ -269,35 +279,29 @@ class LineChart {
           }
           const t = hi.ts === lo.ts ? 0 : (hoverTs - lo.ts) / (hi.ts - lo.ts);
           const v = lo.v + t * (hi.v - lo.v);
-          rows.push({ label: s.label, value: Math.round(v), unit: s.unit || '', color: s.color });
           ctx.beginPath(); ctx.arc(x, py(v), 4, 0, Math.PI*2);
           ctx.fillStyle = s.color; ctx.fill();
           ctx.strokeStyle = cs2.getPropertyValue('--bg').trim(); ctx.lineWidth = 1.5; ctx.stroke();
         });
-
-        if (!rows.length) return;
-        const d = new Date(hoverTs * 1000);
-        const timeStr = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + ':' + d.getSeconds().toString().padStart(2,'0');
-        const lineH = 16, bp = 8;
-        const boxW = Math.max(rows.reduce((m,r) => Math.max(m, (r.label+r.value+r.unit).length * 6.5 + bp*2 + 16), 80), timeStr.length * 6.2 + bp*2);
-        const boxH = bp*2 + 14 + rows.length * lineH;
-        let bx = x + 10; if (bx + boxW > W - pad.r) bx = x - boxW - 10;
-        const by = pad.t + 4;
-        const cs = getComputedStyle(document.documentElement);
-        ctx.fillStyle = cs.getPropertyValue('--tooltip-bg').trim();
-        ctx.strokeStyle = cs.getPropertyValue('--border').trim(); ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.roundRect(bx, by, boxW, boxH, 6); ctx.fill(); ctx.stroke();
-        ctx.font = '11px system-ui'; ctx.textAlign = 'left';
-        ctx.fillStyle = cs.getPropertyValue('--muted').trim();
-        ctx.fillText(timeStr, bx + bp, by + bp + 10);
-        rows.forEach((r, i) => {
-          const ty = by + bp + 14 + (i+1)*lineH - 2;
-          ctx.fillStyle = r.color; ctx.fillRect(bx + bp, ty - 8, 8, 8);
-          ctx.fillStyle = cs.getPropertyValue('--text').trim();
-          ctx.fillText(`${r.label}: ${r.value}${r.unit}`, bx + bp + 12, ty);
-        });
       }
     }
+  }
+
+  // Returns interpolated rows for the HTML tooltip
+  getHoverRows(hoverTs) {
+    const { series, tsStart, tsEnd } = this;
+    const rows = [];
+    series.filter(s => !s.dashed && s.label).forEach(s => {
+      const pts = s.points.filter(p => p.ts >= tsStart && p.ts <= tsEnd);
+      if (pts.length < 2) return;
+      let lo = pts[0], hi = pts[pts.length-1];
+      for (let i = 0; i < pts.length - 1; i++) {
+        if (pts[i].ts <= hoverTs && pts[i+1].ts >= hoverTs) { lo = pts[i]; hi = pts[i+1]; break; }
+      }
+      const t = hi.ts === lo.ts ? 0 : (hoverTs - lo.ts) / (hi.ts - lo.ts);
+      rows.push({ label: s.label, value: Math.round(lo.v + t * (hi.v - lo.v)), unit: s.unit || '', color: s.color });
+    });
+    return rows;
   }
 }
 
@@ -309,6 +313,38 @@ let selectedContainers = new Set();
 
 const cpuChart = new LineChart(document.getElementById('cpu-chart'));
 const memChart = new LineChart(document.getElementById('mem-chart'));
+
+const tooltipEl   = document.getElementById('tooltip');
+const ttTimeEl    = document.getElementById('tt-time');
+const ttRowsEl    = document.getElementById('tt-rows');
+
+function showTooltip(chart) {
+  const { hoverX, _mouseClientX: cx, _mouseClientY: cy, tsStart, tsEnd, W } = chart;
+  const pad = { l: 46, r: 10 };
+  const cw = W - pad.l - pad.r;
+  if (hoverX < pad.l || hoverX > W - pad.r) { hideTooltip(); return; }
+  const hoverTs = tsStart + ((hoverX - pad.l) / cw) * (tsEnd - tsStart);
+  const rows = chart.getHoverRows(hoverTs);
+  if (!rows.length) { hideTooltip(); return; }
+
+  const d = new Date(hoverTs * 1000);
+  ttTimeEl.textContent = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + ':' + d.getSeconds().toString().padStart(2,'0');
+  ttRowsEl.innerHTML = rows.map(r =>
+    `<div class="tt-row"><div class="tt-dot" style="background:${r.color}"></div>${r.label}: <strong>${r.value}${r.unit}</strong></div>`
+  ).join('');
+
+  tooltipEl.style.display = 'block';
+  const tw = tooltipEl.offsetWidth, th = tooltipEl.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let tx = cx + 14, ty = cy - th / 2;
+  if (tx + tw > vw - 8) tx = cx - tw - 14;
+  if (ty < 8) ty = 8;
+  if (ty + th > vh - 8) ty = vh - th - 8;
+  tooltipEl.style.left = tx + 'px';
+  tooltipEl.style.top  = ty + 'px';
+}
+
+function hideTooltip() { tooltipEl.style.display = 'none'; }
 
 function getViewWindow() {
   if (zoomStart !== null) return { start: zoomStart, end: zoomEnd };
