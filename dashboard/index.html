@@ -107,15 +107,29 @@ class LineChart {
     this.minY = 0; this.maxY = 100;
     this.tsStart = 0; this.tsEnd = 1;
     this.hoverX = null;
+    this._drag = null;
     this._resize();
     window.addEventListener('resize', () => { this._resize(); this.draw(); });
     canvas.addEventListener('wheel', e => this._onWheel(e), { passive: false });
+    canvas.addEventListener('mousedown', e => {
+      this._drag = { startX: e.clientX, tsStart: this.tsStart, tsEnd: this.tsEnd };
+      canvas.style.cursor = 'grabbing';
+    });
     canvas.addEventListener('mousemove', e => {
       const rect = canvas.getBoundingClientRect();
-      this.hoverX = e.clientX - rect.left;
-      this.draw();
+      if (this._drag) {
+        const pad = { l: 46, r: 12 };
+        const cw = this.W - pad.l - pad.r;
+        const tsRange = this._drag.tsEnd - this._drag.tsStart;
+        const deltaTs = -((e.clientX - this._drag.startX) / cw) * tsRange;
+        onZoom(this._drag.tsStart + deltaTs, this._drag.tsEnd + deltaTs);
+      } else {
+        this.hoverX = e.clientX - rect.left;
+        this.draw();
+      }
     });
-    canvas.addEventListener('mouseleave', () => { this.hoverX = null; this.draw(); });
+    canvas.addEventListener('mouseup', () => { this._drag = null; canvas.style.cursor = 'crosshair'; });
+    canvas.addEventListener('mouseleave', () => { this._drag = null; this.hoverX = null; canvas.style.cursor = 'crosshair'; this.draw(); });
   }
 
   _resize() {
@@ -356,7 +370,7 @@ function render() {
   ];
 
   const cpuSeries = [
-    { points: data.map(p => ({ ts: p.ts, v: parseFloat(p.cpu) })), color: '#3b82f6', fill: true, label: 'system' }
+    { points: data.map(p => ({ ts: p.ts, v: parseFloat(p.cpu) })), color: '#a855f7', fill: true, label: 'system' }
   ];
 
   selectedContainers.forEach(name => {
