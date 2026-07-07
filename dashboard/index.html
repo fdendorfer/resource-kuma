@@ -341,14 +341,10 @@ function render() {
   const data = allData.filter(p => p.ts >= start && p.ts <= end);
   const latest = allData[allData.length - 1]; // always use latest for current values
 
-  // CPU
+  // CPU — series built below alongside memory (needs selectedContainers)
   const cpuPct = parseFloat(latest.cpu);
   document.getElementById('cpu-val').textContent = cpuPct.toFixed(1) + '%';
   document.getElementById('cpu-val').className = 'card-value ' + valClass(cpuPct);
-  cpuChart.setData(
-    [{ points: data.map(p => ({ ts: p.ts, v: parseFloat(p.cpu) })), color: '#3b82f6', fill: true }],
-    0, 100, start, end
-  );
 
   // Memory — system line + one line per selected container
   const memPct = Math.round(latest.mem_used / latest.mem_total * 100);
@@ -359,27 +355,23 @@ function render() {
     { points: data.map(p => ({ ts: p.ts, v: p.mem_used })), color: '#a855f7', fill: true, label: 'system' }
   ];
 
+  const cpuSeries = [
+    { points: data.map(p => ({ ts: p.ts, v: parseFloat(p.cpu) })), color: '#3b82f6', fill: true, label: 'system' }
+  ];
+
   selectedContainers.forEach(name => {
     const color = colorForContainer(name);
     const pts = data
       .map(p => ({ ts: p.ts, c: (p.containers || []).find(c => c.name === name) }))
-      .filter(p => p.c)
-      .map(p => ({ ts: p.ts, v: p.c.used }));
-    memSeries.push({ points: pts, color, fill: false, label: name });
-
-    // dashed limit line
-    const limit = pts.length ? data.map(p => {
-      const c = (p.containers || []).find(c => c.name === name);
-      return c && c.limit > 0 ? { ts: p.ts, v: c.limit } : null;
-    }).filter(Boolean) : [];
-    if (limit.length) {
-      memSeries.push({ points: limit, color, fill: false, dashed: true, label: null });
-    }
+      .filter(p => p.c);
+    memSeries.push({ points: pts.map(p => ({ ts: p.ts, v: p.c.used })), color, fill: false, label: name });
+    cpuSeries.push({ points: pts.map(p => ({ ts: p.ts, v: parseFloat(p.c.cpu || 0) })), color, fill: false, label: name });
   });
 
+  cpuChart.setData(cpuSeries, 0, 100, start, end);
   memChart.setData(memSeries, 0, latest.mem_total, start, end);
 
-  // Legend
+  // Legend (shared — same containers appear on both charts)
   const legend = document.getElementById('mem-legend');
   legend.innerHTML = memSeries.filter(s => s.label).map(s =>
     `<div class="legend-item"><div class="legend-dot" style="background:${s.color}"></div>${s.label}</div>`

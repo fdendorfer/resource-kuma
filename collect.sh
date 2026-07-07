@@ -40,23 +40,28 @@ mem_used=$(( (mem_total - mem_avail) / 1024 ))
 mem_total_mb=$(( mem_total / 1024 ))
 
 # --- Containers ---
+parse_mb() {
+  # input: "123.4MiB" or "1.2GiB" or "512kB"
+  echo "$1" | awk '{
+    val=$1+0; unit=$1
+    gsub(/[0-9.]/, "", unit)
+    if (unit ~ /GiB/) val = val * 1024
+    else if (unit ~ /[Kk]/) val = val / 1024
+    printf "%.0f", val
+  }'
+}
+
 containers_json=""
 if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
-  while IFS=$'\t' read -r name mem_usage mem_limit; do
-    # parse "123.4MiB / 512MiB" style strings
-    parse_mb() {
-      echo "$1" | awk '{
-        val=$1; unit=$2
-        if (unit ~ /GiB/) val = val * 1024
-        else if (unit ~ /kB|KiB/) val = val / 1024
-        printf "%.0f", val
-      }'
-    }
-    used_mb=$(echo "$mem_usage" | awk '{split($0,a," / "); print a[1]}' | parse_mb)
-    limit_mb=$(echo "$mem_usage" | awk '{split($0,a," / "); print a[2]}' | parse_mb)
+  while IFS=$'\t' read -r name mem_raw cpu_raw; do
+    used_str=$(echo "$mem_raw" | awk -F' / ' '{print $1}' | xargs)
+    limit_str=$(echo "$mem_raw" | awk -F' / ' '{print $2}' | xargs)
+    used_mb=$(parse_mb "$used_str")
+    limit_mb=$(parse_mb "$limit_str")
+    cpu_val=$(echo "$cpu_raw" | tr -d '%' | xargs)
     [ -n "$containers_json" ] && containers_json+=","
-    containers_json+="{\"name\":\"$name\",\"used\":$used_mb,\"limit\":$limit_mb}"
-  done < <(docker stats --no-stream --format $'{{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}' 2>/dev/null)
+    containers_json+="{\"name\":\"$name\",\"used\":${used_mb:-0},\"limit\":${limit_mb:-0},\"cpu\":${cpu_val:-0}}"
+  done < <(docker stats --no-stream --format $'{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' 2>/dev/null)
 fi
 
 ts=$(date +%s)
