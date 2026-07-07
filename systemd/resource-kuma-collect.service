@@ -1,0 +1,8 @@
+[Unit]
+Description=resource-kuma collector (one shot)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/resource-kuma/collect.sh
+User=root

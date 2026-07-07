@@ -1,0 +1,11 @@
+[Unit]
+Description=resource-kuma collector — every 30s
+Requires=resource-kuma-collect.service
+
+[Timer]
+OnBootSec=10
+OnUnitActiveSec=30
+AccuracySec=1
+
+[Install]
+WantedBy=timers.target
