@@ -106,9 +106,16 @@ class LineChart {
     this.series = [];   // [{points:[{ts,v}], color, label, dashed}]
     this.minY = 0; this.maxY = 100;
     this.tsStart = 0; this.tsEnd = 1;
+    this.hoverX = null;
     this._resize();
     window.addEventListener('resize', () => { this._resize(); this.draw(); });
     canvas.addEventListener('wheel', e => this._onWheel(e), { passive: false });
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      this.hoverX = e.clientX - rect.left;
+      this.draw();
+    });
+    canvas.addEventListener('mouseleave', () => { this.hoverX = null; this.draw(); });
   }
 
   _resize() {
@@ -201,6 +208,72 @@ class LineChart {
       ctx.stroke();
       ctx.setLineDash([]);
     });
+
+    // Crosshair + tooltip
+    if (this.hoverX !== null) {
+      const x = this.hoverX;
+      if (x >= pad.l && x <= W - pad.r) {
+        const hoverTs = tsStart + ((x - pad.l) / cw) * tsRange;
+
+        // Vertical line
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ch); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Interpolate each visible (non-dashed) series at hoverTs
+        const rows = [];
+        series.filter(s => !s.dashed && s.label).forEach(s => {
+          const pts = s.points.filter(p => p.ts >= tsStart && p.ts <= tsEnd);
+          if (pts.length < 2) return;
+          // find surrounding points
+          let lo = pts[0], hi = pts[pts.length - 1];
+          for (let i = 0; i < pts.length - 1; i++) {
+            if (pts[i].ts <= hoverTs && pts[i+1].ts >= hoverTs) { lo = pts[i]; hi = pts[i+1]; break; }
+          }
+          const t = hi.ts === lo.ts ? 0 : (hoverTs - lo.ts) / (hi.ts - lo.ts);
+          const v = lo.v + t * (hi.v - lo.v);
+          rows.push({ label: s.label, value: Math.round(v), color: s.color });
+
+          // dot on line
+          ctx.beginPath();
+          ctx.arc(x, py(v), 4, 0, Math.PI * 2);
+          ctx.fillStyle = s.color; ctx.fill();
+          ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
+        });
+
+        if (!rows.length) return;
+
+        // Tooltip box
+        const d = new Date(hoverTs * 1000);
+        const timeStr = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + ':' + d.getSeconds().toString().padStart(2,'0');
+        const lineH = 16, boxPad = 8;
+        const boxH = boxPad * 2 + 14 + rows.length * lineH;
+        const maxLabelW = rows.reduce((m, r) => Math.max(m, r.label.length * 6.5 + 40), 60);
+        const boxW = Math.max(maxLabelW, timeStr.length * 6.5 + boxPad * 2);
+        let bx = x + 10;
+        if (bx + boxW > W - pad.r) bx = x - boxW - 10;
+        const by = pad.t + 4;
+
+        ctx.fillStyle = '#1a1d27ee';
+        ctx.strokeStyle = '#2a2d3a'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, boxW, boxH, 6);
+        ctx.fill(); ctx.stroke();
+
+        ctx.font = '11px system-ui'; ctx.textAlign = 'left';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(timeStr, bx + boxPad, by + boxPad + 10);
+
+        rows.forEach((r, i) => {
+          const ty = by + boxPad + 14 + (i + 1) * lineH - 2;
+          ctx.fillStyle = r.color;
+          ctx.fillRect(bx + boxPad, ty - 8, 8, 8);
+          ctx.fillStyle = '#e2e8f0';
+          ctx.fillText(`${r.label}: ${r.value}`, bx + boxPad + 12, ty);
+        });
+      }
+    }
   }
 }
 
