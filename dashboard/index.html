@@ -16,94 +16,116 @@
     --yellow: #eab308;
     --red: #ef4444;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow-x: hidden; }
+  * { box-sizing: border-box; margin: 0; padding: 0; min-width: 0; }
   body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 14px; }
-  header { display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-  header h1 { font-size: 18px; font-weight: 600; }
-  header h1 span { color: var(--accent); }
-  #updated { margin-left: auto; color: var(--muted); font-size: 12px; }
-  #range-btns { display: flex; gap: 6px; }
-  .range-btn { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-  .range-btn.active { border-color: var(--accent); color: var(--accent); }
-  #zoom-reset { display: none; background: var(--surface); border: 1px solid var(--yellow); color: var(--yellow); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+
+  header { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: 17px; font-weight: 600; white-space: nowrap; }
+  header h1 span { color: #a855f7; }
+  #zoom-reset { display: none; background: var(--surface); border: 1px solid var(--yellow); color: var(--yellow); padding: 3px 9px; border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; }
   #zoom-reset.visible { display: inline-block; }
-  main { padding: 24px; display: grid; gap: 20px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
-  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-  .card-title { font-weight: 600; font-size: 15px; }
-  .card-value { margin-left: auto; font-size: 22px; font-weight: 700; }
-  .card-value.ok { color: var(--green); }
-  .card-value.warn { color: var(--yellow); }
-  .card-value.crit { color: var(--red); }
-  canvas { display: block; cursor: crosshair; }
-  .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+  #updated { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+  main { padding: 20px; display: grid; gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; overflow: hidden; }
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .card-title { font-weight: 600; font-size: 15px; white-space: nowrap; }
+  .card-hint { color: var(--muted); font-size: 12px; }
+  .card-values { display: flex; gap: 16px; margin-left: auto; align-items: baseline; flex-wrap: wrap; }
+  .val-item { display: flex; align-items: center; gap: 6px; }
+  .val-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .val-num { font-size: 20px; font-weight: 700; }
+  .val-num.ok { color: var(--green); }
+  .val-num.warn { color: var(--yellow); }
+  .val-num.crit { color: var(--red); }
+
+  .time-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 3px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .time-select:focus { outline: 1px solid var(--accent); }
+
+  .chart-section { margin-bottom: 14px; }
+  .chart-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  canvas { display: block; cursor: crosshair; width: 100% !important; }
+
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
-  .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
-  .container-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
-  .cbar { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color 0.15s; user-select: none; }
+  .legend-dot { width: 20px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+  .container-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 10px; margin-top: 4px; }
+  .cbar { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; cursor: pointer; transition: border-color 0.15s; user-select: none; }
   .cbar:hover { border-color: var(--muted); }
   .cbar.selected { border-width: 2px; }
-  .cbar-name { font-weight: 500; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cbar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+  .cbar-name { font-weight: 500; margin-bottom: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+  .cbar-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
   .cbar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
   .cbar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-  .zoom-hint { font-size: 11px; color: var(--muted); margin-top: 6px; text-align: right; }
-  @media (max-width: 600px) { main { padding: 12px; } .container-grid { grid-template-columns: 1fr 1fr; } }
+
+  .toggle-btn { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 3px 9px; border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+  .toggle-btn:hover { border-color: var(--muted); color: var(--text); }
 </style>
 </head>
 <body>
 <header>
   <h1>resource<span>-kuma</span></h1>
-  <div id="range-btns">
-    <button class="range-btn" data-h="1">1h</button>
-    <button class="range-btn active" data-h="6">6h</button>
-    <button class="range-btn" data-h="24">24h</button>
-  </div>
   <button id="zoom-reset">↩ reset zoom</button>
   <span id="updated">—</span>
 </header>
 <main>
   <div class="card">
     <div class="card-header">
-      <span class="card-title">CPU</span>
-      <span class="card-value" id="cpu-val">—</span>
+      <span class="card-title">CPU &amp; Memory</span>
+      <div class="card-values">
+        <div class="val-item"><div class="val-dot" style="background:#a855f7"></div><span class="val-num" id="cpu-val">—</span></div>
+        <div class="val-item"><div class="val-dot" style="background:#a855f7"></div><span class="val-num" id="mem-val">—</span></div>
+      </div>
+      <select class="time-select" id="time-select">
+        <option value="1">1h</option>
+        <option value="6" selected>6h</option>
+        <option value="24">24h</option>
+        <option value="72">3d</option>
+        <option value="168">1 week</option>
+        <option value="720">1 month</option>
+        <option value="2160">3 months</option>
+        <option value="8760">1 year</option>
+      </select>
     </div>
-    <canvas id="cpu-chart"></canvas>
+    <div class="chart-section">
+      <div class="chart-label">CPU</div>
+      <canvas id="cpu-chart"></canvas>
+    </div>
+    <div class="chart-section" style="margin-bottom:0">
+      <div class="chart-label">Memory</div>
+      <canvas id="mem-chart"></canvas>
+    </div>
+    <div class="legend" id="legend"></div>
   </div>
+
   <div class="card">
     <div class="card-header">
-      <span class="card-title">Memory</span>
-      <span class="card-value" id="mem-val">—</span>
+      <span class="card-title">Containers</span>
+      <span class="card-hint">click to overlay</span>
+      <button id="toggle-all-btn" class="toggle-btn" style="margin-left:auto">all</button>
     </div>
-    <canvas id="mem-chart"></canvas>
-    <div class="legend" id="mem-legend"></div>
-  </div>
-  <div class="card">
-    <div class="card-header"><span class="card-title">Containers</span><span style="color:var(--muted);font-size:12px;margin-left:4px">click to overlay on charts</span><button id="toggle-all-btn" style="margin-left:auto;background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">all</button></div>
     <div class="container-grid" id="containers"></div>
   </div>
 </main>
 
 <script>
-// ── Palette for container overlay lines ──────────────────────────────────────
+// ── Palette ──────────────────────────────────────────────────────────────────
 const PALETTE = ['#f97316','#06b6d4','#ec4899','#84cc16','#f59e0b','#8b5cf6','#14b8a6','#f43f5e'];
 let paletteIndex = 0;
 const containerColors = {};
-
 function colorForContainer(name) {
-  if (!containerColors[name]) {
-    containerColors[name] = PALETTE[paletteIndex % PALETTE.length];
-    paletteIndex++;
-  }
+  if (!containerColors[name]) containerColors[name] = PALETTE[paletteIndex++ % PALETTE.length];
   return containerColors[name];
 }
 
-// ── Chart ────────────────────────────────────────────────────────────────────
+// ── LineChart ────────────────────────────────────────────────────────────────
 class LineChart {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.series = [];   // [{points:[{ts,v}], color, label, dashed}]
+    this.series = [];
     this.minY = 0; this.maxY = 100;
     this.tsStart = 0; this.tsEnd = 1;
     this.hoverX = null;
@@ -116,15 +138,12 @@ class LineChart {
       canvas.style.cursor = 'grabbing';
     });
     canvas.addEventListener('mousemove', e => {
-      const rect = canvas.getBoundingClientRect();
       if (this._drag) {
-        const pad = { l: 46, r: 12 };
-        const cw = this.W - pad.l - pad.r;
-        const tsRange = this._drag.tsEnd - this._drag.tsStart;
-        const deltaTs = -((e.clientX - this._drag.startX) / cw) * tsRange;
-        onZoom(this._drag.tsStart + deltaTs, this._drag.tsEnd + deltaTs);
+        const cw = this.W - 46 - 12;
+        const delta = -((e.clientX - this._drag.startX) / cw) * (this._drag.tsEnd - this._drag.tsStart);
+        onZoom(this._drag.tsStart + delta, this._drag.tsEnd + delta);
       } else {
-        this.hoverX = e.clientX - rect.left;
+        this.hoverX = e.clientX - canvas.getBoundingClientRect().left;
         this.draw();
       }
     });
@@ -134,8 +153,8 @@ class LineChart {
 
   _resize() {
     const r = window.devicePixelRatio || 1;
-    const w = this.canvas.parentElement.clientWidth - 40;
-    const h = 160;
+    const w = Math.max(100, this.canvas.parentElement.clientWidth);
+    const h = 140;
     this.canvas.width = w * r;
     this.canvas.height = h * r;
     this.canvas.style.width = w + 'px';
@@ -145,8 +164,7 @@ class LineChart {
   }
 
   setData(series, minY, maxY, tsStart, tsEnd) {
-    this.series = series;
-    this.minY = minY; this.maxY = maxY;
+    this.series = series; this.minY = minY; this.maxY = maxY;
     this.tsStart = tsStart; this.tsEnd = tsEnd;
     this.draw();
   }
@@ -158,69 +176,59 @@ class LineChart {
     const factor = e.deltaY > 0 ? 1.3 : 0.77;
     const span = this.tsEnd - this.tsStart;
     const pivotTs = this.tsStart + xFrac * span;
-    const newSpan = Math.min(Math.max(span * factor, 120), 86400);
-    const newStart = pivotTs - xFrac * newSpan;
-    onZoom(newStart, newStart + newSpan);
+    const newSpan = Math.min(Math.max(span * factor, 120), 86400 * 365);
+    onZoom(pivotTs - xFrac * newSpan, pivotTs - xFrac * newSpan + newSpan);
   }
 
   draw() {
     const { ctx, series, W, H, minY, maxY, tsStart, tsEnd } = this;
     ctx.clearRect(0, 0, W, H);
-
-    const pad = { t: 8, b: 24, l: 46, r: 12 };
+    const pad = { t: 6, b: 22, l: 46, r: 10 };
     const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
     const range = maxY - minY || 1;
     const tsRange = tsEnd - tsStart || 1;
-
     const px = ts => pad.l + ((ts - tsStart) / tsRange) * cw;
     const py = v  => pad.t + ch * (1 - (v - minY) / range);
 
-    // Grid lines + Y labels
+    // Grid
     ctx.strokeStyle = '#2a2d3a'; ctx.lineWidth = 1;
     [0, 25, 50, 75, 100].forEach(pct => {
-      const v = minY + range * pct / 100;
-      const y = py(v);
+      const v = minY + range * pct / 100, y = py(v);
       ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
       ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui'; ctx.textAlign = 'right';
-      ctx.fillText(Math.round(v), pad.l - 6, y + 3);
+      ctx.fillText(Math.round(v), pad.l - 5, y + 3);
     });
 
-    // X-axis time labels
+    // X labels
     ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
-    const labelCount = Math.floor(cw / 70);
+    const labelCount = Math.max(2, Math.floor(cw / 80));
     for (let i = 0; i <= labelCount; i++) {
       const ts = tsStart + (i / labelCount) * tsRange;
-      const x = px(ts);
       const d = new Date(ts * 1000);
-      ctx.fillText(d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0'), x, H - 4);
+      const label = tsRange > 86400
+        ? (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours().toString().padStart(2,'0') + 'h'
+        : d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+      ctx.fillText(label, px(ts), H - 4);
     }
 
-    // Series lines
+    // Series
     series.forEach(s => {
       const pts = s.points.filter(p => p.ts >= tsStart && p.ts <= tsEnd);
       if (pts.length < 2) return;
-
-      if (s.dashed) ctx.setLineDash([4, 4]);
-      else ctx.setLineDash([]);
-
+      ctx.setLineDash(s.dashed ? [4,4] : []);
       ctx.beginPath();
       pts.forEach((p, i) => i === 0 ? ctx.moveTo(px(p.ts), py(p.v)) : ctx.lineTo(px(p.ts), py(p.v)));
-
       if (s.fill) {
         const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ch);
-        grad.addColorStop(0, s.color + '44');
-        grad.addColorStop(1, s.color + '05');
+        grad.addColorStop(0, s.color + '44'); grad.addColorStop(1, s.color + '05');
         ctx.lineTo(px(pts[pts.length-1].ts), pad.t + ch);
         ctx.lineTo(px(pts[0].ts), pad.t + ch);
-        ctx.closePath();
-        ctx.fillStyle = grad; ctx.fill();
+        ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
         ctx.beginPath();
         pts.forEach((p, i) => i === 0 ? ctx.moveTo(px(p.ts), py(p.v)) : ctx.lineTo(px(p.ts), py(p.v)));
       }
-
       ctx.strokeStyle = s.color; ctx.lineWidth = s.fill ? 2 : 1.5; ctx.lineJoin = 'round';
-      ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.stroke(); ctx.setLineDash([]);
     });
 
     // Crosshair + tooltip
@@ -228,63 +236,42 @@ class LineChart {
       const x = this.hoverX;
       if (x >= pad.l && x <= W - pad.r) {
         const hoverTs = tsStart + ((x - pad.l) / cw) * tsRange;
-
-        // Vertical line
-        ctx.setLineDash([3, 3]);
-        ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1;
+        ctx.setLineDash([3,3]); ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ch); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Interpolate each visible (non-dashed) series at hoverTs
         const rows = [];
         series.filter(s => !s.dashed && s.label).forEach(s => {
           const pts = s.points.filter(p => p.ts >= tsStart && p.ts <= tsEnd);
           if (pts.length < 2) return;
-          // find surrounding points
-          let lo = pts[0], hi = pts[pts.length - 1];
+          let lo = pts[0], hi = pts[pts.length-1];
           for (let i = 0; i < pts.length - 1; i++) {
             if (pts[i].ts <= hoverTs && pts[i+1].ts >= hoverTs) { lo = pts[i]; hi = pts[i+1]; break; }
           }
           const t = hi.ts === lo.ts ? 0 : (hoverTs - lo.ts) / (hi.ts - lo.ts);
           const v = lo.v + t * (hi.v - lo.v);
-          rows.push({ label: s.label, value: Math.round(v), color: s.color });
-
-          // dot on line
-          ctx.beginPath();
-          ctx.arc(x, py(v), 4, 0, Math.PI * 2);
+          rows.push({ label: s.label, value: Math.round(v), unit: s.unit || '', color: s.color });
+          ctx.beginPath(); ctx.arc(x, py(v), 4, 0, Math.PI*2);
           ctx.fillStyle = s.color; ctx.fill();
           ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
         });
 
         if (!rows.length) return;
-
-        // Tooltip box
         const d = new Date(hoverTs * 1000);
         const timeStr = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + ':' + d.getSeconds().toString().padStart(2,'0');
-        const lineH = 16, boxPad = 8;
-        const boxH = boxPad * 2 + 14 + rows.length * lineH;
-        const maxLabelW = rows.reduce((m, r) => Math.max(m, r.label.length * 6.5 + 40), 60);
-        const boxW = Math.max(maxLabelW, timeStr.length * 6.5 + boxPad * 2);
-        let bx = x + 10;
-        if (bx + boxW > W - pad.r) bx = x - boxW - 10;
+        const lineH = 16, bp = 8;
+        const boxW = Math.max(rows.reduce((m,r) => Math.max(m, (r.label+r.value+r.unit).length * 6.5 + bp*2 + 16), 80), timeStr.length * 6.2 + bp*2);
+        const boxH = bp*2 + 14 + rows.length * lineH;
+        let bx = x + 10; if (bx + boxW > W - pad.r) bx = x - boxW - 10;
         const by = pad.t + 4;
-
-        ctx.fillStyle = '#1a1d27ee';
-        ctx.strokeStyle = '#2a2d3a'; ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(bx, by, boxW, boxH, 6);
-        ctx.fill(); ctx.stroke();
-
+        ctx.fillStyle = '#1a1d27ee'; ctx.strokeStyle = '#2a2d3a'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(bx, by, boxW, boxH, 6); ctx.fill(); ctx.stroke();
         ctx.font = '11px system-ui'; ctx.textAlign = 'left';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(timeStr, bx + boxPad, by + boxPad + 10);
-
+        ctx.fillStyle = '#94a3b8'; ctx.fillText(timeStr, bx + bp, by + bp + 10);
         rows.forEach((r, i) => {
-          const ty = by + boxPad + 14 + (i + 1) * lineH - 2;
-          ctx.fillStyle = r.color;
-          ctx.fillRect(bx + boxPad, ty - 8, 8, 8);
-          ctx.fillStyle = '#e2e8f0';
-          ctx.fillText(`${r.label}: ${r.value}`, bx + boxPad + 12, ty);
+          const ty = by + bp + 14 + (i+1)*lineH - 2;
+          ctx.fillStyle = r.color; ctx.fillRect(bx + bp, ty - 8, 8, 8);
+          ctx.fillStyle = '#e2e8f0'; ctx.fillText(`${r.label}: ${r.value}${r.unit}`, bx + bp + 12, ty);
         });
       }
     }
@@ -294,8 +281,7 @@ class LineChart {
 // ── State ────────────────────────────────────────────────────────────────────
 let allData = [];
 let rangeH = 6;
-let zoomStart = null;
-let zoomEnd = null;
+let zoomStart = null, zoomEnd = null;
 let selectedContainers = new Set();
 
 const cpuChart = new LineChart(document.getElementById('cpu-chart'));
@@ -308,15 +294,28 @@ function getViewWindow() {
 }
 
 function onZoom(start, end) {
-  zoomStart = start;
-  zoomEnd = end;
+  zoomStart = start; zoomEnd = end;
   document.getElementById('zoom-reset').classList.add('visible');
-  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('time-select').value = '';
   render();
 }
 
+document.getElementById('zoom-reset').addEventListener('click', () => {
+  zoomStart = null; zoomEnd = null;
+  document.getElementById('zoom-reset').classList.remove('visible');
+  document.getElementById('time-select').value = String(rangeH);
+  render();
+});
+
+document.getElementById('time-select').addEventListener('change', e => {
+  rangeH = +e.target.value;
+  zoomStart = null; zoomEnd = null;
+  document.getElementById('zoom-reset').classList.remove('visible');
+  render();
+});
+
 document.getElementById('toggle-all-btn').addEventListener('click', () => {
-  const allNames = (allData[allData.length - 1]?.containers || []).map(c => c.name);
+  const allNames = (allData[allData.length-1]?.containers || []).map(c => c.name);
   if (selectedContainers.size === allNames.length) {
     selectedContainers.clear();
     document.getElementById('toggle-all-btn').textContent = 'all';
@@ -327,105 +326,65 @@ document.getElementById('toggle-all-btn').addEventListener('click', () => {
   render();
 });
 
-document.getElementById('zoom-reset').addEventListener('click', () => {
-  zoomStart = null; zoomEnd = null;
-  document.getElementById('zoom-reset').classList.remove('visible');
-  document.querySelectorAll('.range-btn').forEach(b => {
-    b.classList.toggle('active', +b.dataset.h === rangeH);
-  });
-  render();
-});
-
-document.querySelectorAll('.range-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    zoomStart = null; zoomEnd = null;
-    document.getElementById('zoom-reset').classList.remove('visible');
-    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    rangeH = +btn.dataset.h;
-    render();
-  });
-});
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function colorFor(pct) {
-  if (pct >= 90) return '#ef4444';
-  if (pct >= 70) return '#eab308';
-  return '#22c55e';
-}
-function valClass(pct) {
-  if (pct >= 90) return 'crit';
-  if (pct >= 70) return 'warn';
-  return 'ok';
-}
+function colorFor(pct) { return pct >= 90 ? '#ef4444' : pct >= 70 ? '#eab308' : '#22c55e'; }
+function valClass(pct) { return pct >= 90 ? 'crit' : pct >= 70 ? 'warn' : 'ok'; }
 
 // ── Render ───────────────────────────────────────────────────────────────────
 function render() {
   if (!allData.length) return;
-
   const { start, end } = getViewWindow();
   const data = allData.filter(p => p.ts >= start && p.ts <= end);
-  const latest = allData[allData.length - 1]; // always use latest for current values
+  const latest = allData[allData.length - 1];
 
-  // CPU — series built below alongside memory (needs selectedContainers)
+  // Current values
   const cpuPct = parseFloat(latest.cpu);
-  document.getElementById('cpu-val').textContent = cpuPct.toFixed(1) + '%';
-  document.getElementById('cpu-val').className = 'card-value ' + valClass(cpuPct);
-
-  // Memory — system line + one line per selected container
   const memPct = Math.round(latest.mem_used / latest.mem_total * 100);
-  document.getElementById('mem-val').textContent = latest.mem_used + ' MB / ' + latest.mem_total + ' MB';
-  document.getElementById('mem-val').className = 'card-value ' + valClass(memPct);
+  document.getElementById('cpu-val').textContent = cpuPct.toFixed(1) + '%';
+  document.getElementById('cpu-val').className = 'val-num ' + valClass(cpuPct);
+  document.getElementById('mem-val').textContent = latest.mem_used + ' / ' + latest.mem_total + ' MB';
+  document.getElementById('mem-val').className = 'val-num ' + valClass(memPct);
 
-  const memSeries = [
-    { points: data.map(p => ({ ts: p.ts, v: p.mem_used })), color: '#a855f7', fill: true, label: 'system' }
-  ];
-
-  const cpuSeries = [
-    { points: data.map(p => ({ ts: p.ts, v: parseFloat(p.cpu) })), color: '#a855f7', fill: true, label: 'system' }
-  ];
+  // Series
+  const cpuSeries = [{ points: data.map(p => ({ ts: p.ts, v: parseFloat(p.cpu) })), color: '#a855f7', fill: true, label: 'system', unit: '%' }];
+  const memSeries = [{ points: data.map(p => ({ ts: p.ts, v: p.mem_used })),         color: '#a855f7', fill: true, label: 'system', unit: ' MB' }];
 
   selectedContainers.forEach(name => {
     const color = colorForContainer(name);
-    const pts = data
-      .map(p => ({ ts: p.ts, c: (p.containers || []).find(c => c.name === name) }))
-      .filter(p => p.c);
-    memSeries.push({ points: pts.map(p => ({ ts: p.ts, v: p.c.used })), color, fill: false, label: name });
-    cpuSeries.push({ points: pts.map(p => ({ ts: p.ts, v: parseFloat(p.c.cpu || 0) })), color, fill: false, label: name });
+    const pts = data.map(p => ({ ts: p.ts, c: (p.containers || []).find(c => c.name === name) })).filter(p => p.c);
+    cpuSeries.push({ points: pts.map(p => ({ ts: p.ts, v: parseFloat(p.c.cpu || 0) })), color, fill: false, label: name, unit: '%' });
+    memSeries.push({ points: pts.map(p => ({ ts: p.ts, v: p.c.used })),                 color, fill: false, label: name, unit: ' MB' });
   });
 
-  cpuChart.setData(cpuSeries, 0, 100, start, end);
+  cpuChart.setData(cpuSeries, 0, 100,             start, end);
   memChart.setData(memSeries, 0, latest.mem_total, start, end);
 
-  // Legend (shared — same containers appear on both charts)
-  const legend = document.getElementById('mem-legend');
-  legend.innerHTML = memSeries.filter(s => s.label).map(s =>
+  // Legend — deduplicated by label
+  const seen = new Set();
+  const legendItems = [...cpuSeries, ...memSeries].filter(s => s.label && !seen.has(s.label) && seen.add(s.label));
+  document.getElementById('legend').innerHTML = legendItems.map(s =>
     `<div class="legend-item"><div class="legend-dot" style="background:${s.color}"></div>${s.label}</div>`
   ).join('');
 
-  // Containers grid
-  const grid = document.getElementById('containers');
+  // Containers
   const containers = latest.containers || [];
+  const grid = document.getElementById('containers');
   grid.innerHTML = containers.map(c => {
     const pct = c.limit > 0 ? Math.round(c.used / c.limit * 100) : 0;
-    const barColor = selectedContainers.has(c.name) ? colorForContainer(c.name) : colorFor(pct);
-    const limitStr = c.limit > 0 ? ` / ${c.limit} MB` : '';
-    const selStyle = selectedContainers.has(c.name) ? ` selected" style="border-color:${colorForContainer(c.name)}` : '';
+    const col = selectedContainers.has(c.name) ? colorForContainer(c.name) : colorFor(pct);
+    const selStyle = selectedContainers.has(c.name) ? ` selected" style="border-color:${col}` : '';
     return `<div class="cbar${selStyle}" data-name="${c.name}">
       <div class="cbar-name">${c.name}</div>
-      <div class="cbar-track"><div class="cbar-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div></div>
-      <div class="cbar-labels"><span style="color:${barColor}">${c.used} MB${limitStr}</span><span>${pct}%</span></div>
+      <div class="cbar-track"><div class="cbar-fill" style="width:${Math.min(pct,100)}%;background:${col}"></div></div>
+      <div class="cbar-labels"><span style="color:${col}">${c.used} MB${c.limit > 0 ? ' / ' + c.limit + ' MB' : ''}</span><span>${pct}%</span></div>
     </div>`;
   }).join('');
 
   grid.querySelectorAll('.cbar').forEach(el => {
     el.addEventListener('click', () => {
       const name = el.dataset.name;
-      if (selectedContainers.has(name)) selectedContainers.delete(name);
-      else selectedContainers.add(name);
-      const allNames = containers.map(c => c.name);
-      document.getElementById('toggle-all-btn').textContent =
-        selectedContainers.size === allNames.length ? 'none' : 'all';
+      selectedContainers.has(name) ? selectedContainers.delete(name) : selectedContainers.add(name);
+      document.getElementById('toggle-all-btn').textContent = selectedContainers.size === containers.length ? 'none' : 'all';
       render();
     });
   });
@@ -439,13 +398,9 @@ async function fetchData() {
   try {
     const res = await fetch('data.json?_=' + Date.now());
     allData = await res.json();
-    // Extend zoom end to now on each refresh if not zoomed
-    if (zoomStart === null) render();
-    else {
-      zoomEnd = Math.max(zoomEnd, allData[allData.length - 1].ts);
-      render();
-    }
-  } catch (e) {
+    if (zoomEnd !== null) zoomEnd = Math.max(zoomEnd, allData[allData.length-1].ts);
+    render();
+  } catch(e) {
     document.getElementById('updated').textContent = 'error loading data';
   }
 }

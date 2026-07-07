@@ -5,7 +5,7 @@
 DATA_DIR="${RESOURCE_KUMA_DATA_DIR:-/var/lib/resource-kuma}"
 DATA_FILE="$DATA_DIR/data.json"
 STATE_FILE="$DATA_DIR/.cpu_state"
-MAX_POINTS=2880  # 24h at 30s intervals
+MAX_POINTS=8640  # 3 days at 30s intervals
 
 mkdir -p "$DATA_DIR"
 
