@@ -18,34 +18,36 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 14px; }
-  header { display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  header { display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   header h1 { font-size: 18px; font-weight: 600; }
   header h1 span { color: var(--accent); }
   #updated { margin-left: auto; color: var(--muted); font-size: 12px; }
   #range-btns { display: flex; gap: 6px; }
   .range-btn { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
   .range-btn.active { border-color: var(--accent); color: var(--accent); }
+  #zoom-reset { display: none; background: var(--surface); border: 1px solid var(--yellow); color: var(--yellow); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  #zoom-reset.visible { display: inline-block; }
   main { padding: 24px; display: grid; gap: 20px; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
-  .card-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   .card-title { font-weight: 600; font-size: 15px; }
   .card-value { margin-left: auto; font-size: 22px; font-weight: 700; }
   .card-value.ok { color: var(--green); }
   .card-value.warn { color: var(--yellow); }
   .card-value.crit { color: var(--red); }
-  canvas { width: 100% !important; height: 160px !important; }
-  .container-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 8px; }
-  .cbar { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color 0.15s; }
+  canvas { display: block; cursor: crosshair; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+  .container-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
+  .cbar { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color 0.15s; user-select: none; }
   .cbar:hover { border-color: var(--muted); }
-  .cbar.selected { border-color: var(--accent); }
+  .cbar.selected { border-width: 2px; }
   .cbar-name { font-weight: 500; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cbar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
   .cbar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
   .cbar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-  #detail-card { display: none; }
-  #detail-card.visible { display: block; }
-  .detail-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; margin-left: auto; line-height: 1; padding: 0 4px; }
-  .detail-close:hover { color: var(--text); }
+  .zoom-hint { font-size: 11px; color: var(--muted); margin-top: 6px; text-align: right; }
   @media (max-width: 600px) { main { padding: 12px; } .container-grid { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
@@ -57,122 +59,188 @@
     <button class="range-btn active" data-h="6">6h</button>
     <button class="range-btn" data-h="24">24h</button>
   </div>
+  <button id="zoom-reset">↩ reset zoom</button>
   <span id="updated">—</span>
 </header>
 <main>
-  <div class="card" id="cpu-card">
+  <div class="card">
     <div class="card-header">
       <span class="card-title">CPU</span>
       <span class="card-value" id="cpu-val">—</span>
     </div>
     <canvas id="cpu-chart"></canvas>
   </div>
-  <div class="card" id="mem-card">
+  <div class="card">
     <div class="card-header">
       <span class="card-title">Memory</span>
       <span class="card-value" id="mem-val">—</span>
     </div>
     <canvas id="mem-chart"></canvas>
-  </div>
-  <div class="card" id="detail-card">
-    <div class="card-header">
-      <span class="card-title" id="detail-title">—</span>
-      <span class="card-value" id="detail-val">—</span>
-      <button class="detail-close" id="detail-close">✕</button>
-    </div>
-    <canvas id="detail-chart"></canvas>
+    <div class="legend" id="mem-legend"></div>
   </div>
   <div class="card">
-    <div class="card-header"><span class="card-title">Containers</span></div>
+    <div class="card-header"><span class="card-title">Containers</span><span style="color:var(--muted);font-size:12px;margin-left:4px">click to overlay on memory chart</span></div>
     <div class="container-grid" id="containers"></div>
   </div>
 </main>
 
 <script>
-// Minimal Chart.js replacement — pure canvas, zero deps
+// ── Palette for container overlay lines ──────────────────────────────────────
+const PALETTE = ['#f97316','#06b6d4','#ec4899','#84cc16','#f59e0b','#8b5cf6','#14b8a6','#f43f5e'];
+let paletteIndex = 0;
+const containerColors = {};
+
+function colorForContainer(name) {
+  if (!containerColors[name]) {
+    containerColors[name] = PALETTE[paletteIndex % PALETTE.length];
+    paletteIndex++;
+  }
+  return containerColors[name];
+}
+
+// ── Chart ────────────────────────────────────────────────────────────────────
 class LineChart {
-  constructor(canvas, opts = {}) {
+  constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.opts = { color: '#3b82f6', fill: true, ...opts };
-    this.data = [];
+    this.series = [];   // [{points:[{ts,v}], color, label, dashed}]
+    this.minY = 0; this.maxY = 100;
+    this.tsStart = 0; this.tsEnd = 1;
     this._resize();
     window.addEventListener('resize', () => { this._resize(); this.draw(); });
+    canvas.addEventListener('wheel', e => this._onWheel(e), { passive: false });
   }
+
   _resize() {
     const r = window.devicePixelRatio || 1;
     const w = this.canvas.parentElement.clientWidth - 40;
+    const h = 160;
     this.canvas.width = w * r;
-    this.canvas.height = 160 * r;
+    this.canvas.height = h * r;
     this.canvas.style.width = w + 'px';
-    this.canvas.style.height = '160px';
+    this.canvas.style.height = h + 'px';
     this.ctx.scale(r, r);
-    this.W = w; this.H = 160;
+    this.W = w; this.H = h;
   }
-  setData(points, minY = 0, maxY = 100) {
-    this.data = points; this.minY = minY; this.maxY = maxY; this.draw();
-  }
-  draw() {
-    const { ctx, data, W, H, minY, maxY, opts } = this;
-    ctx.clearRect(0, 0, W, H);
-    if (!data.length) return;
 
-    const pad = { t: 8, b: 24, l: 42, r: 12 };
+  setData(series, minY, maxY, tsStart, tsEnd) {
+    this.series = series;
+    this.minY = minY; this.maxY = maxY;
+    this.tsStart = tsStart; this.tsEnd = tsEnd;
+    this.draw();
+  }
+
+  _onWheel(e) {
+    e.preventDefault();
+    const rect = this.canvas.getBoundingClientRect();
+    const xFrac = (e.clientX - rect.left) / rect.width;
+    const factor = e.deltaY > 0 ? 1.3 : 0.77;
+    const span = this.tsEnd - this.tsStart;
+    const pivotTs = this.tsStart + xFrac * span;
+    const newSpan = Math.min(Math.max(span * factor, 120), 86400);
+    const newStart = pivotTs - xFrac * newSpan;
+    onZoom(newStart, newStart + newSpan);
+  }
+
+  draw() {
+    const { ctx, series, W, H, minY, maxY, tsStart, tsEnd } = this;
+    ctx.clearRect(0, 0, W, H);
+
+    const pad = { t: 8, b: 24, l: 46, r: 12 };
     const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
     const range = maxY - minY || 1;
+    const tsRange = tsEnd - tsStart || 1;
 
-    // grid lines
+    const px = ts => pad.l + ((ts - tsStart) / tsRange) * cw;
+    const py = v  => pad.t + ch * (1 - (v - minY) / range);
+
+    // Grid lines + Y labels
     ctx.strokeStyle = '#2a2d3a'; ctx.lineWidth = 1;
     [0, 25, 50, 75, 100].forEach(pct => {
-      const y = pad.t + ch * (1 - (pct * (range / 100) + minY - minY) / range);
+      const v = minY + range * pct / 100;
+      const y = py(v);
       ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
       ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui'; ctx.textAlign = 'right';
-      ctx.fillText(Math.round(minY + range * pct / 100), pad.l - 6, y + 3);
+      ctx.fillText(Math.round(v), pad.l - 6, y + 3);
     });
 
-    // x-axis time labels
+    // X-axis time labels
     ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
-    const step = Math.floor(data.length / 4);
-    for (let i = 0; i < data.length; i += step) {
-      const x = pad.l + (i / (data.length - 1)) * cw;
-      const d = new Date(data[i].ts * 1000);
+    const labelCount = Math.floor(cw / 70);
+    for (let i = 0; i <= labelCount; i++) {
+      const ts = tsStart + (i / labelCount) * tsRange;
+      const x = px(ts);
+      const d = new Date(ts * 1000);
       ctx.fillText(d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0'), x, H - 4);
     }
 
-    // line + fill
-    const px = (i) => pad.l + (i / (data.length - 1)) * cw;
-    const py = (v) => pad.t + ch * (1 - (v - minY) / range);
+    // Series lines
+    series.forEach(s => {
+      const pts = s.points.filter(p => p.ts >= tsStart && p.ts <= tsEnd);
+      if (pts.length < 2) return;
 
-    ctx.beginPath();
-    data.forEach((p, i) => i === 0 ? ctx.moveTo(px(i), py(p.v)) : ctx.lineTo(px(i), py(p.v)));
+      if (s.dashed) ctx.setLineDash([4, 4]);
+      else ctx.setLineDash([]);
 
-    if (opts.fill) {
-      const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ch);
-      grad.addColorStop(0, opts.color + '55');
-      grad.addColorStop(1, opts.color + '05');
-      ctx.lineTo(px(data.length - 1), pad.t + ch);
-      ctx.lineTo(px(0), pad.t + ch);
-      ctx.closePath();
-      ctx.fillStyle = grad; ctx.fill();
       ctx.beginPath();
-      data.forEach((p, i) => i === 0 ? ctx.moveTo(px(i), py(p.v)) : ctx.lineTo(px(i), py(p.v)));
-    }
+      pts.forEach((p, i) => i === 0 ? ctx.moveTo(px(p.ts), py(p.v)) : ctx.lineTo(px(p.ts), py(p.v)));
 
-    ctx.strokeStyle = opts.color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
-    ctx.stroke();
+      if (s.fill) {
+        const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ch);
+        grad.addColorStop(0, s.color + '44');
+        grad.addColorStop(1, s.color + '05');
+        ctx.lineTo(px(pts[pts.length-1].ts), pad.t + ch);
+        ctx.lineTo(px(pts[0].ts), pad.t + ch);
+        ctx.closePath();
+        ctx.fillStyle = grad; ctx.fill();
+        ctx.beginPath();
+        pts.forEach((p, i) => i === 0 ? ctx.moveTo(px(p.ts), py(p.v)) : ctx.lineTo(px(p.ts), py(p.v)));
+      }
+
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.fill ? 2 : 1.5; ctx.lineJoin = 'round';
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
   }
 }
 
-const cpuChart = new LineChart(document.getElementById('cpu-chart'), { color: '#3b82f6' });
-const memChart = new LineChart(document.getElementById('mem-chart'), { color: '#a855f7' });
-const detailChart = new LineChart(document.getElementById('detail-chart'), { color: '#f97316' });
-
+// ── State ────────────────────────────────────────────────────────────────────
 let allData = [];
 let rangeH = 6;
-let selectedContainer = null;
+let zoomStart = null;
+let zoomEnd = null;
+let selectedContainers = new Set();
+
+const cpuChart = new LineChart(document.getElementById('cpu-chart'));
+const memChart = new LineChart(document.getElementById('mem-chart'));
+
+function getViewWindow() {
+  if (zoomStart !== null) return { start: zoomStart, end: zoomEnd };
+  const now = Date.now() / 1000;
+  return { start: now - rangeH * 3600, end: now };
+}
+
+function onZoom(start, end) {
+  zoomStart = start;
+  zoomEnd = end;
+  document.getElementById('zoom-reset').classList.add('visible');
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  render();
+}
+
+document.getElementById('zoom-reset').addEventListener('click', () => {
+  zoomStart = null; zoomEnd = null;
+  document.getElementById('zoom-reset').classList.remove('visible');
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.h === rangeH);
+  });
+  render();
+});
 
 document.querySelectorAll('.range-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    zoomStart = null; zoomEnd = null;
+    document.getElementById('zoom-reset').classList.remove('visible');
     document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     rangeH = +btn.dataset.h;
@@ -180,104 +248,109 @@ document.querySelectorAll('.range-btn').forEach(btn => {
   });
 });
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function colorFor(pct) {
   if (pct >= 90) return '#ef4444';
   if (pct >= 70) return '#eab308';
   return '#22c55e';
 }
-
 function valClass(pct) {
   if (pct >= 90) return 'crit';
   if (pct >= 70) return 'warn';
   return 'ok';
 }
 
+// ── Render ───────────────────────────────────────────────────────────────────
 function render() {
   if (!allData.length) return;
-  const cutoff = Date.now() / 1000 - rangeH * 3600;
-  const data = allData.filter(p => p.ts >= cutoff);
-  if (!data.length) return;
 
-  const latest = data[data.length - 1];
+  const { start, end } = getViewWindow();
+  const data = allData.filter(p => p.ts >= start && p.ts <= end);
+  const latest = allData[allData.length - 1]; // always use latest for current values
 
   // CPU
   const cpuPct = parseFloat(latest.cpu);
   document.getElementById('cpu-val').textContent = cpuPct.toFixed(1) + '%';
   document.getElementById('cpu-val').className = 'card-value ' + valClass(cpuPct);
-  cpuChart.setData(data.map(p => ({ ts: p.ts, v: parseFloat(p.cpu) })), 0, 100);
+  cpuChart.setData(
+    [{ points: data.map(p => ({ ts: p.ts, v: parseFloat(p.cpu) })), color: '#3b82f6', fill: true }],
+    0, 100, start, end
+  );
 
-  // Memory
+  // Memory — system line + one line per selected container
   const memPct = Math.round(latest.mem_used / latest.mem_total * 100);
   document.getElementById('mem-val').textContent = latest.mem_used + ' MB / ' + latest.mem_total + ' MB';
   document.getElementById('mem-val').className = 'card-value ' + valClass(memPct);
-  memChart.setData(data.map(p => ({ ts: p.ts, v: p.mem_used })), 0, latest.mem_total);
 
-  // Containers
+  const memSeries = [
+    { points: data.map(p => ({ ts: p.ts, v: p.mem_used })), color: '#a855f7', fill: true, label: 'system' }
+  ];
+
+  selectedContainers.forEach(name => {
+    const color = colorForContainer(name);
+    const pts = data
+      .map(p => ({ ts: p.ts, c: (p.containers || []).find(c => c.name === name) }))
+      .filter(p => p.c)
+      .map(p => ({ ts: p.ts, v: p.c.used }));
+    memSeries.push({ points: pts, color, fill: false, label: name });
+
+    // dashed limit line
+    const limit = pts.length ? data.map(p => {
+      const c = (p.containers || []).find(c => c.name === name);
+      return c && c.limit > 0 ? { ts: p.ts, v: c.limit } : null;
+    }).filter(Boolean) : [];
+    if (limit.length) {
+      memSeries.push({ points: limit, color, fill: false, dashed: true, label: null });
+    }
+  });
+
+  memChart.setData(memSeries, 0, latest.mem_total, start, end);
+
+  // Legend
+  const legend = document.getElementById('mem-legend');
+  legend.innerHTML = memSeries.filter(s => s.label).map(s =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${s.color}"></div>${s.label}</div>`
+  ).join('');
+
+  // Containers grid
   const grid = document.getElementById('containers');
   const containers = latest.containers || [];
   grid.innerHTML = containers.map(c => {
     const pct = c.limit > 0 ? Math.round(c.used / c.limit * 100) : 0;
-    const color = colorFor(pct);
+    const barColor = selectedContainers.has(c.name) ? colorForContainer(c.name) : colorFor(pct);
     const limitStr = c.limit > 0 ? ` / ${c.limit} MB` : '';
-    const sel = selectedContainer === c.name ? ' selected' : '';
-    return `<div class="cbar${sel}" data-name="${c.name}">
+    const selStyle = selectedContainers.has(c.name) ? ` selected" style="border-color:${colorForContainer(c.name)}` : '';
+    return `<div class="cbar${selStyle}" data-name="${c.name}">
       <div class="cbar-name">${c.name}</div>
-      <div class="cbar-track"><div class="cbar-fill" style="width:${pct}%;background:${color}"></div></div>
-      <div class="cbar-labels"><span style="color:${color}">${c.used} MB${limitStr}</span><span>${pct}%</span></div>
+      <div class="cbar-track"><div class="cbar-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div></div>
+      <div class="cbar-labels"><span style="color:${barColor}">${c.used} MB${limitStr}</span><span>${pct}%</span></div>
     </div>`;
   }).join('');
 
   grid.querySelectorAll('.cbar').forEach(el => {
     el.addEventListener('click', () => {
       const name = el.dataset.name;
-      selectedContainer = selectedContainer === name ? null : name;
-      renderDetail(data);
+      if (selectedContainers.has(name)) selectedContainers.delete(name);
+      else selectedContainers.add(name);
       render();
     });
   });
 
-  // Updated timestamp
   const d = new Date(latest.ts * 1000);
   document.getElementById('updated').textContent = 'updated ' + d.toLocaleTimeString();
-
-  renderDetail(data);
 }
 
-function renderDetail(data) {
-  const card = document.getElementById('detail-card');
-  if (!selectedContainer) { card.classList.remove('visible'); return; }
-
-  const points = data
-    .map(p => ({ ts: p.ts, c: (p.containers || []).find(c => c.name === selectedContainer) }))
-    .filter(p => p.c)
-    .map(p => ({ ts: p.ts, v: p.c.used, limit: p.c.limit }));
-
-  if (!points.length) { card.classList.remove('visible'); return; }
-
-  card.classList.add('visible');
-  document.getElementById('detail-title').textContent = selectedContainer;
-
-  const latest = points[points.length - 1];
-  const pct = latest.limit > 0 ? Math.round(latest.v / latest.limit * 100) : 0;
-  const limitStr = latest.limit > 0 ? ` / ${latest.limit} MB` : '';
-  document.getElementById('detail-val').textContent = `${latest.v} MB${limitStr}`;
-  document.getElementById('detail-val').className = 'card-value ' + valClass(pct);
-
-  const maxY = latest.limit > 0 ? latest.limit : Math.max(...points.map(p => p.v)) * 1.2;
-  detailChart.setData(points, 0, maxY);
-}
-
-document.getElementById('detail-close').addEventListener('click', () => {
-  selectedContainer = null;
-  document.getElementById('detail-card').classList.remove('visible');
-  document.querySelectorAll('.cbar').forEach(el => el.classList.remove('selected'));
-});
-
+// ── Fetch ────────────────────────────────────────────────────────────────────
 async function fetchData() {
   try {
     const res = await fetch('data.json?_=' + Date.now());
     allData = await res.json();
-    render();
+    // Extend zoom end to now on each refresh if not zoomed
+    if (zoomStart === null) render();
+    else {
+      zoomEnd = Math.max(zoomEnd, allData[allData.length - 1].ts);
+      render();
+    }
   } catch (e) {
     document.getElementById('updated').textContent = 'error loading data';
   }
