@@ -79,7 +79,7 @@
     <div class="legend" id="mem-legend"></div>
   </div>
   <div class="card">
-    <div class="card-header"><span class="card-title">Containers</span><span style="color:var(--muted);font-size:12px;margin-left:4px">click to overlay on memory chart</span></div>
+    <div class="card-header"><span class="card-title">Containers</span><span style="color:var(--muted);font-size:12px;margin-left:4px">click to overlay on charts</span><button id="toggle-all-btn" style="margin-left:auto;background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">all</button></div>
     <div class="container-grid" id="containers"></div>
   </div>
 </main>
@@ -315,6 +315,18 @@ function onZoom(start, end) {
   render();
 }
 
+document.getElementById('toggle-all-btn').addEventListener('click', () => {
+  const allNames = (allData[allData.length - 1]?.containers || []).map(c => c.name);
+  if (selectedContainers.size === allNames.length) {
+    selectedContainers.clear();
+    document.getElementById('toggle-all-btn').textContent = 'all';
+  } else {
+    allNames.forEach(n => selectedContainers.add(n));
+    document.getElementById('toggle-all-btn').textContent = 'none';
+  }
+  render();
+});
+
 document.getElementById('zoom-reset').addEventListener('click', () => {
   zoomStart = null; zoomEnd = null;
   document.getElementById('zoom-reset').classList.remove('visible');
@@ -411,6 +423,9 @@ function render() {
       const name = el.dataset.name;
       if (selectedContainers.has(name)) selectedContainers.delete(name);
       else selectedContainers.add(name);
+      const allNames = containers.map(c => c.name);
+      document.getElementById('toggle-all-btn').textContent =
+        selectedContainers.size === allNames.length ? 'none' : 'all';
       render();
     });
   });
