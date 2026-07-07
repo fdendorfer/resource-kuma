@@ -1,6 +1,6 @@
 #!/bin/bash
 # resource-kuma collector — runs every 30s via systemd timer
-# Writes a rolling 24h window to $DATA_FILE as a JSON array
+# Writes a rolling 3-day window to $DATA_FILE as a JSON array
 
 DATA_DIR="${RESOURCE_KUMA_DATA_DIR:-/var/lib/resource-kuma}"
 DATA_FILE="$DATA_DIR/data.json"
@@ -40,19 +40,22 @@ mem_used=$(( (mem_total - mem_avail) / 1024 ))
 mem_total_mb=$(( mem_total / 1024 ))
 
 # --- Containers ---
+# Converts Docker memory strings ("123.4MiB", "1.2GiB", "512kB", "800B") to MiB (integer)
 parse_mb() {
-  # input: "123.4MiB" or "1.2GiB" or "512kB"
   echo "$1" | awk '{
     val=$1+0; unit=$1
     gsub(/[0-9.]/, "", unit)
-    if (unit ~ /GiB/) val = val * 1024
-    else if (unit ~ /[Kk]/) val = val / 1024
+    if      (unit ~ /GiB|GB/)  val = val * 1024
+    else if (unit ~ /[Kk]/)    val = val / 1024
+    else if (unit ~ /^B$/)     val = val / 1048576
+    # MiB and MB fall through — val is already in the right order of magnitude
     printf "%.0f", val
   }'
 }
 
 containers_json=""
-if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+# Use socket existence as a cheap liveness check instead of `docker info`
+if command -v docker &>/dev/null && [ -S /var/run/docker.sock ]; then
   while IFS=$'\t' read -r name mem_raw cpu_raw; do
     used_str=$(echo "$mem_raw" | awk -F' / ' '{print $1}' | xargs)
     limit_str=$(echo "$mem_raw" | awk -F' / ' '{print $2}' | xargs)
@@ -67,17 +70,22 @@ fi
 ts=$(date +%s)
 new_point="{\"ts\":$ts,\"cpu\":$cpu_pct,\"mem_used\":$mem_used,\"mem_total\":$mem_total_mb,\"containers\":[$containers_json]}"
 
-# Rolling window — append and trim to MAX_POINTS
+# Rolling window — append and trim to MAX_POINTS.
+# Write to a temp file then rename for atomicity: a kill mid-write
+# leaves the old file intact rather than corrupting the history.
 if [ -f "$DATA_FILE" ] && [ -s "$DATA_FILE" ]; then
   python3 -c "
-import json, sys
-with open('$DATA_FILE') as f:
+import json, sys, os, tempfile
+path = sys.argv[2]
+with open(path) as f:
   data = json.load(f)
 data.append(json.loads(sys.argv[1]))
-data = data[-$MAX_POINTS:]
-with open('$DATA_FILE', 'w') as f:
+data = data[-int(sys.argv[3]):]
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
+with os.fdopen(fd, 'w') as f:
   json.dump(data, f, separators=(',',':'))
-" "$new_point" 2>/dev/null || echo "[$new_point]" > "$DATA_FILE"
+os.replace(tmp, path)
+" "$new_point" "$DATA_FILE" "$MAX_POINTS" 2>/dev/null || echo "[$new_point]" > "$DATA_FILE"
 else
   echo "[$new_point]" > "$DATA_FILE"
 fi

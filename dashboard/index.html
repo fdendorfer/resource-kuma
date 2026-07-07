@@ -147,6 +147,7 @@ class LineChart {
     this.tsStart = 0; this.tsEnd = 1;
     this.hoverX = null;
     this._drag = null;
+    this._cacheColors();
     this._resize();
     window.addEventListener('resize', () => { this._resize(); this.draw(); });
     canvas.addEventListener('wheel', e => this._onWheel(e), { passive: false });
@@ -172,6 +173,26 @@ class LineChart {
       this._drag = null; this.hoverX = null; canvas.style.cursor = 'crosshair';
       this.draw(); hideTooltip();
     });
+  }
+
+  _cacheColors() {
+    const cs = getComputedStyle(document.documentElement);
+    this._c = {
+      border: cs.getPropertyValue('--border').trim(),
+      muted:  cs.getPropertyValue('--muted').trim(),
+      bg:     cs.getPropertyValue('--bg').trim(),
+    };
+  }
+
+  // Returns interpolated value at hoverTs; null if pts is too short
+  _interpolateAt(pts, hoverTs) {
+    if (pts.length < 2) return null;
+    let lo = pts[0], hi = pts[pts.length - 1];
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (pts[i].ts <= hoverTs && pts[i+1].ts >= hoverTs) { lo = pts[i]; hi = pts[i+1]; break; }
+    }
+    const t = hi.ts === lo.ts ? 0 : (hoverTs - lo.ts) / (hi.ts - lo.ts);
+    return lo.v + t * (hi.v - lo.v);
   }
 
   _resize() {
@@ -214,9 +235,7 @@ class LineChart {
     const py = v  => pad.t + ch * (1 - (v - minY) / range);
 
     // Grid
-    const cs = getComputedStyle(document.documentElement);
-    const borderColor = cs.getPropertyValue('--border').trim();
-    const mutedColor  = cs.getPropertyValue('--muted').trim();
+    const { border: borderColor, muted: mutedColor, bg: bgColor } = this._c;
     ctx.strokeStyle = borderColor; ctx.lineWidth = 1;
     [0, 25, 50, 75, 100].forEach(pct => {
       const v = minY + range * pct / 100, y = py(v);
@@ -262,22 +281,16 @@ class LineChart {
       const x = this.hoverX;
       if (x >= pad.l && x <= W - pad.r) {
         const hoverTs = tsStart + ((x - pad.l) / cw) * tsRange;
-        const cs2 = getComputedStyle(document.documentElement);
-        ctx.setLineDash([3,3]); ctx.strokeStyle = cs2.getPropertyValue('--muted').trim(); ctx.lineWidth = 1;
+        ctx.setLineDash([3,3]); ctx.strokeStyle = mutedColor; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ch); ctx.stroke();
         ctx.setLineDash([]);
         series.filter(s => !s.dashed && s.label).forEach(s => {
           const pts = s.points.filter(p => p.ts >= tsStart && p.ts <= tsEnd);
-          if (pts.length < 2) return;
-          let lo = pts[0], hi = pts[pts.length-1];
-          for (let i = 0; i < pts.length - 1; i++) {
-            if (pts[i].ts <= hoverTs && pts[i+1].ts >= hoverTs) { lo = pts[i]; hi = pts[i+1]; break; }
-          }
-          const t = hi.ts === lo.ts ? 0 : (hoverTs - lo.ts) / (hi.ts - lo.ts);
-          const v = lo.v + t * (hi.v - lo.v);
+          const v = this._interpolateAt(pts, hoverTs);
+          if (v === null) return;
           ctx.beginPath(); ctx.arc(x, py(v), 4, 0, Math.PI*2);
           ctx.fillStyle = s.color; ctx.fill();
-          ctx.strokeStyle = cs2.getPropertyValue('--bg').trim(); ctx.lineWidth = 1.5; ctx.stroke();
+          ctx.strokeStyle = bgColor; ctx.lineWidth = 1.5; ctx.stroke();
         });
       }
     }
@@ -289,13 +302,9 @@ class LineChart {
     const rows = [];
     series.filter(s => !s.dashed && s.label).forEach(s => {
       const pts = s.points.filter(p => p.ts >= tsStart && p.ts <= tsEnd);
-      if (pts.length < 2) return;
-      let lo = pts[0], hi = pts[pts.length-1];
-      for (let i = 0; i < pts.length - 1; i++) {
-        if (pts[i].ts <= hoverTs && pts[i+1].ts >= hoverTs) { lo = pts[i]; hi = pts[i+1]; break; }
-      }
-      const t = hi.ts === lo.ts ? 0 : (hoverTs - lo.ts) / (hi.ts - lo.ts);
-      rows.push({ label: s.label, value: Math.round(lo.v + t * (hi.v - lo.v)), unit: s.unit || '', color: s.color });
+      const v = this._interpolateAt(pts, hoverTs);
+      if (v === null) return;
+      rows.push({ label: s.label, value: Math.round(v), unit: s.unit || '', color: s.color });
     });
     return rows;
   }
@@ -466,6 +475,8 @@ function applyTheme(light) {
   document.documentElement.classList.toggle('light', light);
   themeBtn.textContent = light ? '☾' : '☀︎';
   localStorage.setItem('rk-theme', light ? 'light' : 'dark');
+  cpuChart._cacheColors();
+  memChart._cacheColors();
   render();
 }
 themeBtn.addEventListener('click', () => applyTheme(!document.documentElement.classList.contains('light')));
