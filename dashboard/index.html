@@ -23,28 +23,26 @@
   header { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   header h1 { font-size: 17px; font-weight: 600; white-space: nowrap; }
   header h1 span { color: #a855f7; }
+  #updated { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
   #zoom-reset { display: none; background: var(--surface); border: 1px solid var(--yellow); color: var(--yellow); padding: 3px 9px; border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; }
   #zoom-reset.visible { display: inline-block; }
-  #updated { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
 
   main { padding: 20px; display: grid; gap: 16px; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; overflow: hidden; }
   .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
   .card-title { font-weight: 600; font-size: 15px; white-space: nowrap; }
   .card-hint { color: var(--muted); font-size: 12px; }
-  .card-values { display: flex; gap: 16px; margin-left: auto; align-items: baseline; flex-wrap: wrap; }
-  .val-item { display: flex; align-items: center; gap: 6px; }
-  .val-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .val-num { font-size: 20px; font-weight: 700; }
-  .val-num.ok { color: var(--green); }
-  .val-num.warn { color: var(--yellow); }
-  .val-num.crit { color: var(--red); }
 
   .time-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 3px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; }
   .time-select:focus { outline: 1px solid var(--accent); }
 
-  .chart-section { margin-bottom: 14px; }
-  .chart-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .chart-section { margin-bottom: 24px; }
+  .chart-label-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .chart-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .val-num { font-size: 20px; font-weight: 700; }
+  .val-num.ok { color: var(--green); }
+  .val-num.warn { color: var(--yellow); }
+  .val-num.crit { color: var(--red); }
   canvas { display: block; cursor: crosshair; width: 100% !important; }
 
   .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
@@ -67,18 +65,14 @@
 <body>
 <header>
   <h1>resource<span>-kuma</span></h1>
-  <button id="zoom-reset">↩ reset zoom</button>
   <span id="updated">—</span>
 </header>
 <main>
   <div class="card">
     <div class="card-header">
       <span class="card-title">CPU &amp; Memory</span>
-      <div class="card-values">
-        <div class="val-item"><div class="val-dot" style="background:#a855f7"></div><span class="val-num" id="cpu-val">—</span></div>
-        <div class="val-item"><div class="val-dot" style="background:#a855f7"></div><span class="val-num" id="mem-val">—</span></div>
-      </div>
-      <select class="time-select" id="time-select">
+      <select class="time-select" id="time-select" style="margin-left:auto">
+        <option value="custom" disabled>custom</option>
         <option value="1">1h</option>
         <option value="6" selected>6h</option>
         <option value="24">24h</option>
@@ -88,13 +82,20 @@
         <option value="2160">3 months</option>
         <option value="8760">1 year</option>
       </select>
+      <button id="zoom-reset">↩ reset zoom</button>
     </div>
     <div class="chart-section">
-      <div class="chart-label">CPU</div>
+      <div class="chart-label-row">
+        <span class="chart-label">CPU</span>
+        <span class="val-num" id="cpu-val">—</span>
+      </div>
       <canvas id="cpu-chart"></canvas>
     </div>
     <div class="chart-section" style="margin-bottom:0">
-      <div class="chart-label">Memory</div>
+      <div class="chart-label-row">
+        <span class="chart-label">Memory</span>
+        <span class="val-num" id="mem-val">—</span>
+      </div>
       <canvas id="mem-chart"></canvas>
     </div>
     <div class="legend" id="legend"></div>
@@ -296,7 +297,7 @@ function getViewWindow() {
 function onZoom(start, end) {
   zoomStart = start; zoomEnd = end;
   document.getElementById('zoom-reset').classList.add('visible');
-  document.getElementById('time-select').value = '';
+  document.getElementById('time-select').value = 'custom';
   render();
 }
 
