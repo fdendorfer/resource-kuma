@@ -35,11 +35,17 @@
   .card-value.crit { color: var(--red); }
   canvas { width: 100% !important; height: 160px !important; }
   .container-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 8px; }
-  .cbar { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .cbar { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color 0.15s; }
+  .cbar:hover { border-color: var(--muted); }
+  .cbar.selected { border-color: var(--accent); }
   .cbar-name { font-weight: 500; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cbar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
   .cbar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
   .cbar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  #detail-card { display: none; }
+  #detail-card.visible { display: block; }
+  .detail-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; margin-left: auto; line-height: 1; padding: 0 4px; }
+  .detail-close:hover { color: var(--text); }
   @media (max-width: 600px) { main { padding: 12px; } .container-grid { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
@@ -67,6 +73,14 @@
       <span class="card-value" id="mem-val">—</span>
     </div>
     <canvas id="mem-chart"></canvas>
+  </div>
+  <div class="card" id="detail-card">
+    <div class="card-header">
+      <span class="card-title" id="detail-title">—</span>
+      <span class="card-value" id="detail-val">—</span>
+      <button class="detail-close" id="detail-close">✕</button>
+    </div>
+    <canvas id="detail-chart"></canvas>
   </div>
   <div class="card">
     <div class="card-header"><span class="card-title">Containers</span></div>
@@ -151,9 +165,11 @@ class LineChart {
 
 const cpuChart = new LineChart(document.getElementById('cpu-chart'), { color: '#3b82f6' });
 const memChart = new LineChart(document.getElementById('mem-chart'), { color: '#a855f7' });
+const detailChart = new LineChart(document.getElementById('detail-chart'), { color: '#f97316' });
 
 let allData = [];
 let rangeH = 6;
+let selectedContainer = null;
 
 document.querySelectorAll('.range-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -203,17 +219,59 @@ function render() {
     const pct = c.limit > 0 ? Math.round(c.used / c.limit * 100) : 0;
     const color = colorFor(pct);
     const limitStr = c.limit > 0 ? ` / ${c.limit} MB` : '';
-    return `<div class="cbar">
+    const sel = selectedContainer === c.name ? ' selected' : '';
+    return `<div class="cbar${sel}" data-name="${c.name}">
       <div class="cbar-name">${c.name}</div>
       <div class="cbar-track"><div class="cbar-fill" style="width:${pct}%;background:${color}"></div></div>
       <div class="cbar-labels"><span style="color:${color}">${c.used} MB${limitStr}</span><span>${pct}%</span></div>
     </div>`;
   }).join('');
 
+  grid.querySelectorAll('.cbar').forEach(el => {
+    el.addEventListener('click', () => {
+      const name = el.dataset.name;
+      selectedContainer = selectedContainer === name ? null : name;
+      renderDetail(data);
+      render();
+    });
+  });
+
   // Updated timestamp
   const d = new Date(latest.ts * 1000);
   document.getElementById('updated').textContent = 'updated ' + d.toLocaleTimeString();
+
+  renderDetail(data);
 }
+
+function renderDetail(data) {
+  const card = document.getElementById('detail-card');
+  if (!selectedContainer) { card.classList.remove('visible'); return; }
+
+  const points = data
+    .map(p => ({ ts: p.ts, c: (p.containers || []).find(c => c.name === selectedContainer) }))
+    .filter(p => p.c)
+    .map(p => ({ ts: p.ts, v: p.c.used, limit: p.c.limit }));
+
+  if (!points.length) { card.classList.remove('visible'); return; }
+
+  card.classList.add('visible');
+  document.getElementById('detail-title').textContent = selectedContainer;
+
+  const latest = points[points.length - 1];
+  const pct = latest.limit > 0 ? Math.round(latest.v / latest.limit * 100) : 0;
+  const limitStr = latest.limit > 0 ? ` / ${latest.limit} MB` : '';
+  document.getElementById('detail-val').textContent = `${latest.v} MB${limitStr}`;
+  document.getElementById('detail-val').className = 'card-value ' + valClass(pct);
+
+  const maxY = latest.limit > 0 ? latest.limit : Math.max(...points.map(p => p.v)) * 1.2;
+  detailChart.setData(points, 0, maxY);
+}
+
+document.getElementById('detail-close').addEventListener('click', () => {
+  selectedContainer = null;
+  document.getElementById('detail-card').classList.remove('visible');
+  document.querySelectorAll('.cbar').forEach(el => el.classList.remove('selected'));
+});
 
 async function fetchData() {
   try {
